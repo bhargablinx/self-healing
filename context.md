@@ -593,17 +593,21 @@ Any AI coding agent contributing to this repository must:
 - Repository inspection is complete. The project-specific README and this context file are present.
 - Backend foundation is implemented in `backend/` using Express 5, TypeScript, Zod, and Prisma 7 with the PostgreSQL driver adapter.
 - Prisma Client is generated from `backend/prisma/schema.prisma`. The `Service` and `Incident` models, enums, relation, and indexes are defined.
-- The initial Prisma migration has been applied successfully to the Compose PostgreSQL database. A Prisma Client query from the backend container also succeeded.
+- The initial Prisma migration and the incident deduplication migration have been applied to both the local and Compose PostgreSQL databases. Prisma Client queries from the backend container succeeded.
 - `GET /api/health` is implemented and has returned HTTP 200 from both a local backend process on port 3000 and the Compose backend on port 3001.
 - A demo application exists in `demo-app/`, with `GET /` and `GET /health`.
-- Docker Compose currently runs PostgreSQL, the backend, and demo app. PostgreSQL has a named persistent volume and health check; the backend and demo app have health checks. The frontend Compose service is not implemented yet.
+- Docker Compose currently runs PostgreSQL, the backend, and demo app. PostgreSQL has a named persistent volume and health check and binds to loopback port 5433 for host-side Prisma migrations; the backend and demo app have health checks. The frontend Compose service is not implemented yet.
 - The Compose backend defaults to host port 3001 because port 3000 is already used by a local backend process on the development machine. Set `BACKEND_PORT` in the root `.env` to change it.
 - Dockerode monitoring code is implemented in `backend/src/monitoring/` and failure transition/deduplication rules are in `backend/src/detection/`. The backend checks only names in `MONITORED_CONTAINERS`, updates service status/health through Prisma, and logs detection and clear events. A 404 for a configured target is treated as unavailable; other Docker errors do not change the last service observation.
 - The Docker socket is now mounted into the backend Compose service only. It is not mounted into the demo app. Socket access is highly privileged; code-level target allowlisting does not restrict the Docker daemon API itself.
 - Local monitoring was exercised against the Docker demo container: a stop was detected once across repeated polls, and a restart cleared the failure and updated the local service record to `RUNNING`/`HEALTHY`.
-- Persistent incident creation/lifecycle handling, service/incident API endpoints, and the React dashboard are not implemented yet.
+- Detections now create incidents in PostgreSQL. Active incidents are unique by a nullable `deduplicationKey`; resolving an incident clears the key, allowing a future occurrence to create a new record. A healthy observation resolves active incidents for the service; a changed failure type resolves the previous type.
+- `GET /api/services`, `GET /api/services/:id`, `GET /api/incidents`, and `GET /api/incidents/:id` return database records. Incident lists support `page`, `limit`, and optional `status` filtering.
+- A Compose stop/restart demonstration created exactly one active stopped-container incident across repeated polls, returned its detail from the API, then resolved it after restart. The API reported the service as `RUNNING`/`HEALTHY` afterward.
+- The React dashboard and frontend Compose service are not implemented yet.
 - The regular Dockerfile image build uses `npm ci`; repeated attempts in this environment stalled during dependency installation. To get the updated worker running in Compose without changing the repository's reproducible build path, a local image was assembled from the existing host-installed dependencies and compiled output. That image is currently running and has been exercised against Compose PostgreSQL and Docker.
 - The host Docker socket has group ID 129 on the development machine. Compose adds this group to the non-root backend container via `DOCKER_GID`; hosts with a different socket group must update that value in `.env`.
+- Host PostgreSQL on port 5432 and Compose PostgreSQL on loopback port 5433 are separate databases. The Compose backend uses the Compose database. A stale `self-healing-demo` row exists in host PostgreSQL from local-worker verification; Prisma Studio started with the default `backend/.env` reads that host database unless `DATABASE_URL` is overridden to port 5433.
 
 ### Roadmap progress
 
@@ -611,16 +615,16 @@ Any AI coding agent contributing to this repository must:
 - **Phase 2 — Backend and database foundation:** Complete and verified against PostgreSQL.
 - **Phase 3 — Demo application and Compose:** Partially complete. The backend, database, and demo app run in Compose; the frontend service remains to be integrated.
 - **Phase 4 — Monitoring and detection:** Implemented and exercised inside the running Compose backend. The regular Dockerfile rebuild still depends on successful npm registry downloads in the build environment.
-- **Phase 5 — Incident persistence and API:** Not started. The Prisma models exist, but incident lifecycle logic and service/incident API routes do not.
+- **Phase 5 — Incident persistence and API:** Complete and verified with a Compose stop/restart demonstration and database-backed API reads.
 - **Phase 6 — Frontend dashboard:** Not started.
-- **Phase 7 — End-to-end testing and documentation:** Not started. Only foundation and health checks have been verified so far.
+- **Phase 7 — End-to-end testing and documentation:** Partially complete. Backend monitoring, incident creation/deduplication/resolution, API reads, and health endpoints were manually exercised; the dashboard flow and broader failure cases remain.
 
 Do not assume any feature beyond the verified items above has been implemented.
 
 ### Immediate next steps
 
-1. Begin Phase 5: persist detections as incidents with database-backed deduplication and lifecycle updates, then expose service and incident API endpoints.
-2. Integrate the frontend service into Compose when the React/Vite frontend is built in Phase 6.
+1. Begin Phase 6: build the React, TypeScript, Vite, and Tailwind dashboard and integrate it with the service and incident endpoints.
+2. Continue Phase 7 by verifying invalid API inputs, disabled services, unhealthy containers, and the full dashboard stop/restart demonstration.
 3. Update this status block after each phase to reflect executed and verified work accurately.
 
 ### First end-to-end target

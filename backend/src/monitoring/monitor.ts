@@ -1,7 +1,8 @@
 import type { ContainerInspectInfo } from 'dockerode';
-import { HealthStatus, ServiceStatus } from '../generated/prisma/client.js';
+import { HealthStatus, IncidentType, ServiceStatus } from '../generated/prisma/client.js';
 import { env } from '../config/env.js';
 import { DetectionEngine, type FailureDetection, type FailureType } from '../detection/detection-engine.js';
+import { reconcileServiceIncident } from '../incidents/incident-service.js';
 import { docker } from './docker-client.js';
 import { prisma } from '../lib/prisma.js';
 
@@ -54,7 +55,6 @@ export class ContainerMonitor {
   private async inspectConfiguredContainer(containerName: string): Promise<void> {
     const existingService = await prisma.service.findUnique({ where: { containerId: containerName } });
     if (existingService && !existingService.isEnabled) {
-      this.logDetectionEvents(this.detections.observe(containerName, null));
       return;
     }
 
@@ -69,11 +69,16 @@ export class ContainerMonitor {
           create: { name: containerName, containerId: containerName, ...observation, lastCheckedAt: new Date() },
           update: { ...observation, lastCheckedAt: new Date() },
         });
-        this.logDetectionEvents(this.detections.observe(service.name, {
+        const failure: FailureDetection = {
           serviceName: service.name,
           failureType: 'CONTAINER_UNAVAILABLE',
           description: `Configured container "${containerName}" was not found by Docker.`,
-        }));
+        };
+        await reconcileServiceIncident(service.id, {
+          incidentType: IncidentType[failure.failureType],
+          description: failure.description,
+        });
+        this.logDetectionEvents(this.detections.observe(service.name, failure));
         return;
       }
 
@@ -99,6 +104,10 @@ export class ContainerMonitor {
       update: { ...observation, lastCheckedAt: new Date() },
     });
     const failure = failureFor(service.name, observation.status, observation.healthStatus);
+    await reconcileServiceIncident(service.id, failure ? {
+      incidentType: IncidentType[failure.failureType],
+      description: failure.description,
+    } : null);
     this.logDetectionEvents(this.detections.observe(service.name, failure));
   }
 

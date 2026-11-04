@@ -1,6 +1,8 @@
 import express, { type ErrorRequestHandler } from 'express';
 import { Prisma } from './generated/prisma/client.js';
 import { ZodError } from 'zod';
+import { servicesRouter } from './api/routes/services.js';
+import { incidentsRouter } from './api/routes/incidents.js';
 
 export const app = express();
 app.disable('x-powered-by');
@@ -8,6 +10,8 @@ app.use(express.json());
 app.get('/api/health', (_req, res) => {
   res.status(200).json({ data: { status: 'ok' } });
 });
+app.use('/api/services', servicesRouter);
+app.use('/api/incidents', incidentsRouter);
 app.use((_req, res) => {
   res.status(404).json({ error: { code: 'NOT_FOUND', message: 'Route not found' } });
 });

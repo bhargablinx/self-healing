@@ -19,4 +19,18 @@ npm run prisma:migrate -- --name init
 npm run dev
 ```
 
-The API health endpoint is `GET http://localhost:3000/api/health`. Configure the server port and database URL in `backend/.env`. The initial Prisma models describe services and incidents; monitoring and data endpoints will be added in later phases.
+When running directly with `npm run dev`, the API health endpoint is `GET http://localhost:3000/api/health`. Configure the server port and database URL in `backend/.env`. The initial Prisma models describe services and incidents; monitoring and data endpoints will be added in later phases.
+
+## Run the demo and database with Docker Compose
+
+This phase includes PostgreSQL, the backend, and the demo service. The React frontend will be added to Compose when its setup begins.
+
+```bash
+cp .env.example .env
+docker compose up --build -d
+docker compose ps
+```
+
+Check the demo at `http://localhost:4000/` and `http://localhost:4000/health`; check the Compose backend at `http://localhost:3001/api/health` by default. Set `BACKEND_PORT` in `.env` to change the host port. Stop the stack with `docker compose down`. The named `postgres_data` volume keeps the database when containers are recreated; `docker compose down -v` also deletes that data.
+
+The values in `.env.example` are for local development only. Change the database password for your machine and keep `.env` private. The Docker socket grants powerful control over the Docker host. It is not mounted into any container in this phase. When monitoring is added, socket access will be confined to the backend monitoring component; it will never be given to the frontend or demo app.

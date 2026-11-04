@@ -598,15 +598,19 @@ Any AI coding agent contributing to this repository must:
 - A demo application exists in `demo-app/`, with `GET /` and `GET /health`.
 - Docker Compose currently runs PostgreSQL, the backend, and demo app. PostgreSQL has a named persistent volume and health check; the backend and demo app have health checks. The frontend Compose service is not implemented yet.
 - The Compose backend defaults to host port 3001 because port 3000 is already used by a local backend process on the development machine. Set `BACKEND_PORT` in the root `.env` to change it.
-- No Docker socket is mounted into any container. When monitoring is implemented, socket access must be added only to the backend component that needs it.
-- Monitoring/worker logic, incident creation and lifecycle handling, service/incident API endpoints, and the React dashboard are not implemented yet.
+- Dockerode monitoring code is implemented in `backend/src/monitoring/` and failure transition/deduplication rules are in `backend/src/detection/`. The backend checks only names in `MONITORED_CONTAINERS`, updates service status/health through Prisma, and logs detection and clear events. A 404 for a configured target is treated as unavailable; other Docker errors do not change the last service observation.
+- The Docker socket is now mounted into the backend Compose service only. It is not mounted into the demo app. Socket access is highly privileged; code-level target allowlisting does not restrict the Docker daemon API itself.
+- Local monitoring was exercised against the Docker demo container: a stop was detected once across repeated polls, and a restart cleared the failure and updated the local service record to `RUNNING`/`HEALTHY`.
+- Persistent incident creation/lifecycle handling, service/incident API endpoints, and the React dashboard are not implemented yet.
+- The regular Dockerfile image build uses `npm ci`; repeated attempts in this environment stalled during dependency installation. To get the updated worker running in Compose without changing the repository's reproducible build path, a local image was assembled from the existing host-installed dependencies and compiled output. That image is currently running and has been exercised against Compose PostgreSQL and Docker.
+- The host Docker socket has group ID 129 on the development machine. Compose adds this group to the non-root backend container via `DOCKER_GID`; hosts with a different socket group must update that value in `.env`.
 
 ### Roadmap progress
 
 - **Phase 1 — Repository inspection and planning:** Complete.
 - **Phase 2 — Backend and database foundation:** Complete and verified against PostgreSQL.
 - **Phase 3 — Demo application and Compose:** Partially complete. The backend, database, and demo app run in Compose; the frontend service remains to be integrated.
-- **Phase 4 — Monitoring and detection:** Not started. This is the next implementation phase.
+- **Phase 4 — Monitoring and detection:** Implemented and exercised inside the running Compose backend. The regular Dockerfile rebuild still depends on successful npm registry downloads in the build environment.
 - **Phase 5 — Incident persistence and API:** Not started. The Prisma models exist, but incident lifecycle logic and service/incident API routes do not.
 - **Phase 6 — Frontend dashboard:** Not started.
 - **Phase 7 — End-to-end testing and documentation:** Not started. Only foundation and health checks have been verified so far.
@@ -615,11 +619,9 @@ Do not assume any feature beyond the verified items above has been implemented.
 
 ### Immediate next steps
 
-1. Implement Phase 4 monitoring and detection: add Dockerode, configure an explicit set of monitored containers, collect container state/health, and add deterministic detection with disabled-service and transient-error handling.
-2. Keep the worker independent from Express route handlers and do not add recovery actions or arbitrary command execution.
-3. Continue to Phase 5 only after monitoring/detection is implemented and reviewed; persist incidents with deduplication and lifecycle updates, then expose service and incident API endpoints.
-4. Integrate the frontend service into Compose when the React/Vite frontend is built in Phase 6.
-5. Update this status block after each phase to reflect executed and verified work accurately.
+1. Begin Phase 5: persist detections as incidents with database-backed deduplication and lifecycle updates, then expose service and incident API endpoints.
+2. Integrate the frontend service into Compose when the React/Vite frontend is built in Phase 6.
+3. Update this status block after each phase to reflect executed and verified work accurately.
 
 ### First end-to-end target
 

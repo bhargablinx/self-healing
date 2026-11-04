@@ -22,6 +22,15 @@ services:
       NODE_ENV: production
       PORT: 3000
       DATABASE_URL: postgresql://${POSTGRES_USER:-self_healing}:${POSTGRES_PASSWORD:-local_dev_password}@database:5432/${POSTGRES_DB:-self_healing}?schema=public
+      MONITORED_CONTAINERS: ${MONITORED_CONTAINERS:-self-healing-demo-app}
+      MONITOR_INTERVAL_MS: ${MONITOR_INTERVAL_MS:-5000}
+      DOCKER_SOCKET_PATH: /var/run/docker.sock
+    # Docker socket access is highly privileged. It is mounted only into the
+    # backend because the monitoring worker needs to inspect allowlisted targets.
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+    group_add:
+      - "${DOCKER_GID:-129}"
     ports:
       - "${BACKEND_PORT:-3001}:3000"
     depends_on:
@@ -39,6 +48,7 @@ services:
     build:
       context: ./demo-app
       dockerfile: Dockerfile
+    container_name: self-healing-demo-app
     ports:
       - "${DEMO_APP_PORT:-4000}:4000"
     healthcheck:

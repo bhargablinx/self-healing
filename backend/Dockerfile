@@ -2,7 +2,9 @@ FROM node:22-alpine
 ENV NODE_ENV=production
 WORKDIR /app
 COPY package.json package-lock.json ./
-RUN npm ci --include=dev
+RUN --mount=type=cache,target=/root/.npm \
+    npm ci --include=dev --no-audit --no-fund --prefer-offline \
+      --maxsockets=5 --fetch-retries=5 --fetch-timeout=300000
 COPY prisma ./prisma
 COPY prisma.config.ts tsconfig.json ./
 COPY src ./src

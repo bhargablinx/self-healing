@@ -1,0 +1,73 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum ServiceStatus {
+  UNKNOWN
+  RUNNING
+  STOPPED
+  UNAVAILABLE
+}
+
+enum HealthStatus {
+  UNKNOWN
+  HEALTHY
+  UNHEALTHY
+  NOT_CONFIGURED
+}
+
+enum IncidentType {
+  CONTAINER_STOPPED
+  CONTAINER_UNHEALTHY
+  CONTAINER_UNAVAILABLE
+}
+
+enum IncidentSeverity {
+  LOW
+  MEDIUM
+  HIGH
+  CRITICAL
+}
+
+enum IncidentStatus {
+  ACTIVE
+  RESOLVED
+}
+
+model Service {
+  id            String        @id @default(cuid())
+  name          String
+  containerId   String        @unique
+  status        ServiceStatus @default(UNKNOWN)
+  healthStatus  HealthStatus  @default(UNKNOWN)
+  isEnabled     Boolean       @default(true)
+  lastCheckedAt DateTime?
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+  incidents     Incident[]
+
+  @@index([isEnabled, status])
+  @@map("services")
+}
+
+model Incident {
+  id           String           @id @default(cuid())
+  serviceId    String
+  incidentType IncidentType
+  severity     IncidentSeverity @default(MEDIUM)
+  description  String
+  status       IncidentStatus   @default(ACTIVE)
+  detectedAt   DateTime         @default(now())
+  resolvedAt   DateTime?
+  createdAt    DateTime         @default(now())
+  service      Service          @relation(fields: [serviceId], references: [id], onDelete: Cascade)
+
+  @@index([serviceId, incidentType, status])
+  @@index([status, detectedAt])
+  @@map("incidents")
+}

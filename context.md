@@ -575,7 +575,7 @@ Any AI coding agent contributing to this repository must:
 
 ## 15. Current Project Status and Immediate Next Steps
 
-**Current direction:** The project is a college major project in planning/early prototype stage. The long-term vision is AI-assisted autonomous recovery, but the current V1 is intentionally restricted to detecting Docker container failures, creating incidents, and displaying them in a dashboard.
+**Current direction:** The project is a college major project in early implementation. The long-term vision is AI-assisted autonomous recovery, but the current V1 is intentionally restricted to detecting Docker container failures, creating incidents, and displaying them in a dashboard.
 
 **Current V1 stack:**
 
@@ -588,15 +588,38 @@ Any AI coding agent contributing to this repository must:
 - `dockerode` for Docker monitoring
 - Zod for validation where appropriate
 
-Do not assume the repository, database, monitoring worker, API, or dashboard has already been implemented. Inspect the actual repository first.
+### Verified implementation status (updated 2026-11-05)
+
+- Repository inspection is complete. The project-specific README and this context file are present.
+- Backend foundation is implemented in `backend/` using Express 5, TypeScript, Zod, and Prisma 7 with the PostgreSQL driver adapter.
+- Prisma Client is generated from `backend/prisma/schema.prisma`. The `Service` and `Incident` models, enums, relation, and indexes are defined.
+- The initial Prisma migration has been applied successfully to the Compose PostgreSQL database. A Prisma Client query from the backend container also succeeded.
+- `GET /api/health` is implemented and has returned HTTP 200 from both a local backend process on port 3000 and the Compose backend on port 3001.
+- A demo application exists in `demo-app/`, with `GET /` and `GET /health`.
+- Docker Compose currently runs PostgreSQL, the backend, and demo app. PostgreSQL has a named persistent volume and health check; the backend and demo app have health checks. The frontend Compose service is not implemented yet.
+- The Compose backend defaults to host port 3001 because port 3000 is already used by a local backend process on the development machine. Set `BACKEND_PORT` in the root `.env` to change it.
+- No Docker socket is mounted into any container. When monitoring is implemented, socket access must be added only to the backend component that needs it.
+- Monitoring/worker logic, incident creation and lifecycle handling, service/incident API endpoints, and the React dashboard are not implemented yet.
+
+### Roadmap progress
+
+- **Phase 1 — Repository inspection and planning:** Complete.
+- **Phase 2 — Backend and database foundation:** Complete and verified against PostgreSQL.
+- **Phase 3 — Demo application and Compose:** Partially complete. The backend, database, and demo app run in Compose; the frontend service remains to be integrated.
+- **Phase 4 — Monitoring and detection:** Not started. This is the next implementation phase.
+- **Phase 5 — Incident persistence and API:** Not started. The Prisma models exist, but incident lifecycle logic and service/incident API routes do not.
+- **Phase 6 — Frontend dashboard:** Not started.
+- **Phase 7 — End-to-end testing and documentation:** Not started. Only foundation and health checks have been verified so far.
+
+Do not assume any feature beyond the verified items above has been implemented.
 
 ### Immediate next steps
 
-1. Inspect the repository `self-healing-software` and determine its actual state.
-2. Read this context file and the README.
-3. Identify existing code that can be reused.
-4. Present a small, repository-specific Phase 1 plan.
-5. After approval, begin the backend and Prisma foundation.
+1. Implement Phase 4 monitoring and detection: add Dockerode, configure an explicit set of monitored containers, collect container state/health, and add deterministic detection with disabled-service and transient-error handling.
+2. Keep the worker independent from Express route handlers and do not add recovery actions or arbitrary command execution.
+3. Continue to Phase 5 only after monitoring/detection is implemented and reviewed; persist incidents with deduplication and lifecycle updates, then expose service and incident API endpoints.
+4. Integrate the frontend service into Compose when the React/Vite frontend is built in Phase 6.
+5. Update this status block after each phase to reflect executed and verified work accurately.
 
 ### First end-to-end target
 

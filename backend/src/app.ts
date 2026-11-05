@@ -3,9 +3,24 @@ import { Prisma } from './generated/prisma/client.js';
 import { ZodError } from 'zod';
 import { servicesRouter } from './api/routes/services.js';
 import { incidentsRouter } from './api/routes/incidents.js';
+import { env } from './config/env.js';
 
 export const app = express();
 app.disable('x-powered-by');
+app.use((req, res, next) => {
+  const origin = req.headers.origin;
+  if (origin && env.CORS_ORIGINS.includes(origin)) {
+    res.setHeader('Access-Control-Allow-Origin', origin);
+    res.setHeader('Vary', 'Origin');
+    res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
+    res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+  }
+  if (req.method === 'OPTIONS') {
+    res.sendStatus(origin && env.CORS_ORIGINS.includes(origin) ? 204 : 403);
+    return;
+  }
+  next();
+});
 app.use(express.json());
 app.get('/api/health', (_req, res) => {
   res.status(200).json({ data: { status: 'ok' } });

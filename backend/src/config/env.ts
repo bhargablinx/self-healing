@@ -10,6 +10,9 @@ const envSchema = z.object({
   ),
   MONITOR_INTERVAL_MS: z.coerce.number().int().min(1_000).default(5_000),
   DOCKER_SOCKET_PATH: z.string().default('/var/run/docker.sock'),
+  CORS_ORIGINS: z.string().default('http://localhost:5173,http://127.0.0.1:5173').transform((value) =>
+    [...new Set(value.split(',').map((origin) => origin.trim()).filter(Boolean))],
+  ),
 });
 const parsed = envSchema.safeParse(process.env);
 if (!parsed.success) {

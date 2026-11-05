@@ -23,7 +23,7 @@ When running directly with `npm run dev`, the API health endpoint is `GET http:/
 
 ## Run the demo and database with Docker Compose
 
-This phase includes PostgreSQL, the backend, and the demo service. The React frontend will be added to Compose when its setup begins.
+Docker Compose runs PostgreSQL, the backend, the demo service, and the React dashboard.
 
 ```bash
 cp .env.example .env
@@ -31,7 +31,7 @@ docker compose up --build -d
 docker compose ps
 ```
 
-Check the demo at `http://localhost:4000/` and `http://localhost:4000/health`; check the Compose backend at `http://localhost:3001/api/health` by default. Set `BACKEND_PORT` in `.env` to change the host port. Stop the stack with `docker compose down`. The named `postgres_data` volume keeps the database when containers are recreated; `docker compose down -v` also deletes that data.
+Open the dashboard at `http://localhost:5173/`, the demo at `http://localhost:4000/`, and the Compose backend at `http://localhost:3001/api/health` by default. The dashboard reads the API and refreshes every five seconds. Set `FRONTEND_PORT` or `BACKEND_PORT` in `.env` to change the host ports; if the backend port changes, the frontend image build receives that port as its API URL. Stop the stack with `docker compose down`. The named `postgres_data` volume keeps the database when containers are recreated; `docker compose down -v` also deletes that data.
 
 The backend monitors only names listed in `MONITORED_CONTAINERS` (the example defaults to `self-healing-demo-app`). To see monitor output, run `docker compose logs -f backend`. You can demonstrate detection with `docker compose stop demo-app`, then restore the demo with `docker compose start demo-app`. Repeated detection logs are suppressed in memory, and the database deduplication key also prevents duplicate active incidents across backend restarts.
 
@@ -51,4 +51,4 @@ The Compose backend API is available on `http://localhost:3001` by default (`BAC
 
 Successful responses use a `data` field. Incident lists also return `pagination` metadata. Invalid IDs or query values return HTTP 400; missing records return HTTP 404. Timestamps are serialized as ISO 8601 UTC values.
 
-The values in `.env.example` are for local development only. Change the database password for your machine and keep `.env` private. Compose binds PostgreSQL to loopback port 5433 for running Prisma migrations from the host; change `DATABASE_HOST_PORT` if needed. The Docker socket is mounted into the backend because its monitoring worker needs Docker Engine inspection. `DOCKER_GID` in `.env` must match `stat -c '%g' /var/run/docker.sock` so the non-root backend user can access the socket; update the example value on hosts with a different group ID. Socket access is highly privileged and can effectively grant control over the Docker host; the current code uses it only to inspect the explicitly configured targets, but the mount itself is not a Docker API permission filter. It is never mounted into the frontend or demo app.
+The values in `.env.example` are for local development only. Change the database password for your machine and keep `.env` private. Compose binds PostgreSQL to loopback port 5433 for running Prisma migrations from the host; change `DATABASE_HOST_PORT` if needed. `FRONTEND_ORIGINS` controls the backend's allowlisted CORS origins. The Docker socket is mounted into the backend because its monitoring worker needs Docker Engine inspection. `DOCKER_GID` in `.env` must match `stat -c '%g' /var/run/docker.sock` so the non-root backend user can access the socket; update the example value on hosts with a different group ID. Socket access is highly privileged and can effectively grant control over the Docker host; the current code uses it only to inspect the explicitly configured targets, but the mount itself is not a Docker API permission filter. It is never mounted into the frontend or demo app.

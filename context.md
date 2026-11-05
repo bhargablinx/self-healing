@@ -603,11 +603,12 @@ Any AI coding agent contributing to this repository must:
 - Local monitoring was exercised against the Docker demo container: a stop was detected once across repeated polls, and a restart cleared the failure and updated the local service record to `RUNNING`/`HEALTHY`.
 - Detections now create incidents in PostgreSQL. Active incidents are unique by a nullable `deduplicationKey`; resolving an incident clears the key, allowing a future occurrence to create a new record. A healthy observation resolves active incidents for the service; a changed failure type resolves the previous type.
 - `GET /api/services`, `GET /api/services/:id`, `GET /api/incidents`, and `GET /api/incidents/:id` return database records. Incident lists support `page`, `limit`, and optional `status` filtering.
+- API input validation was manually checked in Phase 7: malformed service/incident IDs, invalid pagination (`page=0`, `limit=101`), and an unsupported incident status return HTTP 400 with the centralized validation error shape. Service and incident IDs are checked against the generated Prisma CUID format. The API health endpoint remained HTTP 200; current service state was `RUNNING`/`HEALTHY`, with no active incidents after the user-confirmed dashboard demonstration.
 - A Compose stop/restart demonstration created exactly one active stopped-container incident across repeated polls, returned its detail from the API, then resolved it after restart. The API reported the service as `RUNNING`/`HEALTHY` afterward.
 - The React + TypeScript + Vite dashboard is implemented in `frontend/`. It displays service summary counts, current service/container status and health, recent incidents, and a selected incident's details. It polls the existing read-only API every five seconds and includes loading, empty, retry, and stale-data error states. It states that recovery is manual and offers no recovery controls.
 - Dashboard CORS is configured in the Express app using a comma-separated origin allowlist (`CORS_ORIGINS`); Compose supplies `FRONTEND_ORIGINS`, defaulting to localhost and 127.0.0.1 on port 5173. Only GET and OPTIONS are allowed by this middleware.
 - A multi-stage frontend Dockerfile builds static assets and serves them with Nginx; the Compose frontend publishes port 5173 by default. The frontend has no Docker socket mount.
-- Frontend `npm run build` succeeded, backend `npm run build` succeeded, and `docker compose config --quiet` succeeded during Phase 6 implementation. The dashboard has not yet been exercised in a browser against the running Compose services.
+- Frontend `npm run build` succeeded, backend `npm run build` succeeded, and `docker compose config --quiet` succeeded during Phase 6 implementation. The user confirmed the dashboard is working in the browser against the running Compose services. A later read-only check found the demo service `RUNNING`/`HEALTHY` and its most recent stopped-container incident `RESOLVED`; database, backend, demo app, and frontend Compose services were healthy at that check.
 - The regular Dockerfile image build uses `npm ci`; repeated attempts in this environment stalled during dependency installation. To get the updated worker running in Compose without changing the repository's reproducible build path, a local image was assembled from the existing host-installed dependencies and compiled output. That image is currently running and has been exercised against Compose PostgreSQL and Docker.
 - The host Docker socket has group ID 129 on the development machine. Compose adds this group to the non-root backend container via `DOCKER_GID`; hosts with a different socket group must update that value in `.env`.
 - Host PostgreSQL on port 5432 and Compose PostgreSQL on loopback port 5433 are separate databases. The Compose backend uses the Compose database. A stale `self-healing-demo` row exists in host PostgreSQL from local-worker verification; Prisma Studio started with the default `backend/.env` reads that host database unless `DATABASE_URL` is overridden to port 5433.
@@ -619,16 +620,15 @@ Any AI coding agent contributing to this repository must:
 - **Phase 3 — Demo application and Compose:** Complete. Backend, database, demo app, and frontend services are defined in Compose; demo stop/start is used for controlled incident demonstration.
 - **Phase 4 — Monitoring and detection:** Implemented and exercised inside the running Compose backend. The regular Dockerfile rebuild still depends on successful npm registry downloads in the build environment.
 - **Phase 5 — Incident persistence and API:** Complete and verified with a Compose stop/restart demonstration and database-backed API reads.
-- **Phase 6 — Frontend dashboard:** Implemented; frontend and backend builds and Compose configuration were verified. Browser-based live polling and end-to-end stop/restart remain for Phase 7 verification.
-- **Phase 7 — End-to-end testing and documentation:** Partially complete. Backend monitoring, incident creation/deduplication/resolution, API reads, and health endpoints were manually exercised; the dashboard flow and broader failure cases remain.
+- **Phase 6 — Frontend dashboard:** Complete. Frontend and backend builds and Compose configuration were verified, and the user confirmed the dashboard works in the browser.
+- **Phase 7 — End-to-end testing and documentation:** Partially complete. Backend monitoring, incident creation/deduplication/resolution, API reads, health endpoints, the user-confirmed dashboard stop/restart flow, and invalid API inputs were exercised. Disabled-service behavior, unhealthy-container detection, and transient Docker monitoring errors have only been reviewed in code; runtime verification remains pending because it would require changing monitored state.
 
 Do not assume any feature beyond the verified items above has been implemented.
 
 ### Immediate next steps
 
-1. Continue Phase 7 by starting the dashboard in Compose and verifying live service/incident updates through a browser during demo stop/restart.
-2. Verify invalid API inputs, disabled services, unhealthy containers, and the incident lifecycle.
-3. Update this status block after each verification so it reflects executed results accurately.
+1. Continue Phase 7 by arranging a controlled verification of disabled-service behavior, unhealthy-container detection, and monitoring-error handling without affecting user workloads.
+2. Update this status block after each verification so it reflects executed results accurately.
 
 ### First end-to-end target
 

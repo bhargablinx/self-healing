@@ -3,7 +3,7 @@ import { IncidentStatus } from '../../generated/prisma/client.js';
 import { z } from 'zod';
 import { getIncident, listIncidents } from '../../incidents/incident-service.js';
 
-const incidentIdParams = z.object({ id: z.string().min(1).max(64) });
+const incidentIdParams = z.object({ id: z.string().regex(/^c[a-z0-9]{24}$/, 'Invalid incident ID') });
 const incidentListQuery = z.object({
   page: z.coerce.number().int().min(1).default(1),
   limit: z.coerce.number().int().min(1).max(100).default(20),

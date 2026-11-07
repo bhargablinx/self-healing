@@ -2,7 +2,7 @@
 
 > **Purpose:** This file gives developers and AI coding agents the current project goals, V1 scope, architecture, technology choices, constraints, and development direction.
 >
-> **Project status:** V1 and V2 Phase 0 stabilization are complete. V2-A Phase 1 evidence collection is implemented, migrated, tested, and verified in Compose. V2-A Phase 2 classification is implemented as a tested pure module. Diagnosis rules/persistence, API endpoints, and UI integration have not started.
+> **Project status:** V1 and V2 Phase 0 stabilization are complete. V2-A Phases 1–3 (evidence collection, failure classification, and rule-based diagnosis/persistence) are implemented and verified. Evidence/diagnosis API endpoints and UI integration have not started.
 
 ---
 
@@ -615,7 +615,7 @@ Any AI coding agent contributing to this repository must:
 - Project documentation is organized under `docs/` for architecture, configuration/local setup, API, operations/data model, and development/verification/security. The root README contains a short Compose quick start and links to those guides.
 - Multi-container monitoring is configured in the root `.env` for five names (`self-healing-demo-app` through `self-healing-demo-app-5`). The running backend reports `Monitoring 5 configured container(s)`, and `GET /api/services` returns all five service records. At the latest check, apps 1–4 were healthy and app 5 was stopped with one active stopped-container incident; the frontend polls the API every five seconds.
 - During Phase 0, the documented `docker compose up --build -d` startup briefly started the previously stopped `demo-app-5`. It was stopped again to restore its prior container state. The monitor resolved the prior active incident during the brief recovery and created a new active incident after the container was stopped again. No incident or service rows were deleted or manually rewritten.
-- Eighteen automated backend regression tests now run with Node's built-in test runner and the existing `tsx` dependency. They cover detection transitions, incident lifecycle, monitoring boundaries, evidence sanitization/scheduling, and deterministic failure classification. Tests use injected fake dependencies and do not connect to PostgreSQL or inspect Docker containers.
+- Twenty-eight automated backend regression tests now run with Node's built-in test runner and the existing `tsx` dependency. They cover detection transitions, incident lifecycle, monitoring boundaries, evidence sanitization/scheduling, deterministic failure classification, diagnosis rules, and persistence orchestration. Tests use injected fake dependencies and do not connect to PostgreSQL or inspect Docker containers.
 - The host Docker socket has group ID 129 on the development machine. Compose adds this group to the non-root backend container via `DOCKER_GID`; hosts with a different socket group must update that value in `.env`.
 - Host PostgreSQL on port 5432 and Compose PostgreSQL on loopback port 5433 are separate databases. The Compose backend uses the Compose database. A stale `self-healing-demo` row exists in host PostgreSQL from local-worker verification; Prisma Studio started with the default `backend/.env` reads that host database unless `DATABASE_URL` is overridden to port 5433.
 
@@ -631,14 +631,15 @@ Any AI coding agent contributing to this repository must:
 - **V2 Phase 0 — V1 stabilization:** Complete. Clean backend build verified, regression suite added and passing, and existing Compose/PostgreSQL data preserved.
 - **V2-A Phase 1 — Evidence collection:** Complete and verified. Added bounded, sanitized Docker evidence collection, per-evidence failure recording, a Prisma evidence model and additive migration, and nonblocking monitor integration. The migration was applied to the Compose database without resetting existing data. Eleven backend tests pass. The clean backend image build and Compose health check passed; all six evidence types were confirmed persisted for the existing stopped `demo-app-5` incident. No demo container state was changed during verification.
 - **V2-A Phase 2 — Failure classification:** Complete. Added a Zod-validated pure classifier for all six specified categories, with failed evidence excluded and unsupported scenarios classified as unknown. Unit tests cover explicit OOM evidence, exit code 137 ambiguity, health and startup failures, missing containers, and insufficient evidence. It is not yet wired into a diagnosis engine or API.
-- **V2-A Phases 3–6 — Rule-based diagnosis, API, UI, and integration:** Not started.
+- **V2-A Phase 3 — Rule-based diagnosis:** Complete and verified. Added modular deterministic rules, Zod-validated diagnosis results, and an engine that retrieves incident evidence and persists each run as a diagnosis history record. Added the `Diagnosis` model and applied its additive migration without altering existing incidents/evidence. The clean backend image and runtime are healthy; a live diagnosis for the existing stopped `demo-app-5` incident was persisted as `APPLICATION_CRASH` with `MEDIUM` confidence. The demo container was not changed.
+- **V2-A Phases 4–6 — Backend API, UI, and integration:** Not started.
 - **V2-B — LLM-assisted diagnosis:** Not started; must wait until V2-A acceptance criteria are met.
 
 Do not assume any feature beyond the verified items above has been implemented.
 
 ### Immediate next steps
 
-1. Continue with V2-A Phase 3: deterministic diagnosis rules and diagnosis persistence, then add the API and dashboard phases.
+1. Continue with V2-A Phase 4: evidence and diagnosis API endpoints, then add the dashboard integration.
 2. Complete and verify all V2-A acceptance criteria before proposing V2-B LLM work.
 
 ### First end-to-end target

@@ -45,6 +45,14 @@ An incident belongs to a service and records the observed failure type, severity
 
 The service-to-incident relation cascades on service deletion. Deleting a service therefore deletes its incident history too.
 
+### Incident evidence
+
+Evidence is stored in `incident_evidence`, one row per incident and evidence type. Collection failures remain visible through `collectionStatus` and `collectionError`. The incident relation cascades on deletion.
+
+### Diagnosis
+
+Each rule-based diagnosis run appends a row to `diagnoses`. Records include the category, probable cause, explanation, confidence, evidence supporting the result, missing evidence, method, and creation time. Multiple runs per incident are retained as history. The diagnosis engine currently has no HTTP endpoint or dashboard action; those are planned next.
+
 ## Persistence and migrations
 
 Compose stores PostgreSQL data in the named `postgres_data` volume. `docker compose down` preserves it; `docker compose down -v` removes it. Back up data before deleting volumes or changing schema.
@@ -64,5 +72,5 @@ Commit migration files under `backend/prisma/migrations/`. Do not edit an alread
 - The API and dashboard are read-only; service registration and enable/disable controls are not exposed.
 - A missing target (Docker 404) is treated as unavailable. Other Docker inspection errors are logged and do not alter the previous observation or create an incident.
 - A running container with no Docker health check is `NOT_CONFIGURED`, not unhealthy.
-- There is no authentication, authorization, AI analysis, automatic restart, rollback, or shell command execution.
+- There is no authentication, authorization, LLM analysis, automatic restart, rollback, or shell command execution. Rule-based diagnoses are persisted but not yet exposed in the API or dashboard.
 - Service status represents the latest successful observation and can be stale during monitoring errors.

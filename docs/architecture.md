@@ -10,8 +10,9 @@
 | Detection engine | `backend/src/detection/` | Emits events when a service enters or leaves a failure condition. |
 | Incident service | `backend/src/incidents/` | Persists, deduplicates, and resolves incidents using Prisma. |
 | Evidence collector | `backend/src/diagnosis/evidence-collector.ts` | Asynchronously stores bounded, sanitized Docker state, health, metadata, and logs for newly detected incidents. |
-| Failure classifier | `backend/src/diagnosis/failure-classifier.ts` | Pure, deterministic mapping from incident evidence to a supported failure category; diagnosis execution is not yet wired. |
-| Database | PostgreSQL | Stores service observations, incident history, and incident evidence. |
+| Failure classifier | `backend/src/diagnosis/failure-classifier.ts` | Pure, deterministic mapping from incident evidence to a supported failure category, used by the diagnosis rules. |
+| Diagnosis engine | `backend/src/diagnosis/diagnosis-engine.ts` and `diagnosis-rules.ts` | Evaluates evidence against deterministic rules and appends a diagnosis history record. It is not exposed through an API yet. |
+| Database | PostgreSQL | Stores service observations, incident history, evidence, and diagnosis history. |
 | Demo app | `demo-app/` | Small HTTP service with `/` and `/health` routes. |
 
 ```text
@@ -20,6 +21,8 @@ Docker Engine -> monitoring worker -> detection -> incident service -> Prisma ->
                        +-> evidence collector ---------------+
 Dashboard -> Express read API -------------------------------------------------+
 ```
+
+The failure classifier and diagnosis engine are invoked separately from the monitoring cycle. A diagnosis is currently created by calling the engine from backend code; the planned incident diagnosis endpoint is part of the next V2-A phase.
 
 ## Monitoring cycle
 
@@ -30,7 +33,7 @@ Dashboard -> Express read API -------------------------------------------------+
 5. When a failure transition is detected, the worker schedules evidence collection after incident persistence and does not wait for collection to finish.
 6. The dashboard polls the read API and displays the latest stored service and incident data. Evidence read endpoints and dashboard presentation are planned for later V2-A phases.
 
-Evidence is stored in `incident_evidence`, with one row per incident and evidence type. Recent stdout/stderr logs are bounded by `EVIDENCE_LOG_TAIL_LINES` and `EVIDENCE_LOG_MAX_BYTES`; collection operations use `EVIDENCE_COLLECTION_TIMEOUT_MS`. Docker environment variables are not collected. Common credential patterns are redacted from logs and Docker error/health text. Individual collection failures are stored on the evidence row and do not prevent incident creation.
+Evidence is stored in `incident_evidence`, with one row per incident and evidence type. Diagnoses are appended to `diagnoses`, preserving each run as history. Recent stdout/stderr logs are bounded by `EVIDENCE_LOG_TAIL_LINES` and `EVIDENCE_LOG_MAX_BYTES`; collection operations use `EVIDENCE_COLLECTION_TIMEOUT_MS`. Docker environment variables are not collected. Common credential patterns are redacted from logs and Docker error/health text. Individual collection failures are stored on the evidence row and do not prevent incident creation.
 
 The default polling interval is five seconds. `MONITOR_INTERVAL_MS` sets the interval, with a minimum of one second enforced by configuration validation.
 

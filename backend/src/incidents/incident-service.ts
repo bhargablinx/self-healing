@@ -11,6 +11,8 @@ export interface FailureToRecord {
   description: string;
 }
 
+type IncidentTransaction = Pick<Prisma.TransactionClient, 'incident'>;
+
 function severityFor(type: IncidentType): IncidentSeverity {
   return type === IncidentType.CONTAINER_UNAVAILABLE
     ? IncidentSeverity.MEDIUM
@@ -22,40 +24,50 @@ export async function reconcileServiceIncident(
   serviceId: string,
   failure: FailureToRecord | null,
 ) {
+  return prisma.$transaction(
+    (transaction) => reconcileServiceIncidentInTransaction(transaction, serviceId, failure),
+    { isolationLevel: Prisma.TransactionIsolationLevel.Serializable },
+  );
+}
+
+/** Transaction-level reconciliation is exported so lifecycle rules can be tested without a database. */
+export async function reconcileServiceIncidentInTransaction(
+  transaction: IncidentTransaction,
+  serviceId: string,
+  failure: FailureToRecord | null,
+) {
   const resolvedAt = new Date();
   const resolveFilter = failure
     ? { incidentType: { not: failure.incidentType } }
     : {};
 
-  return prisma.$transaction(async (transaction) => {
-    await transaction.incident.updateMany({
-      where: {
-        serviceId,
-        status: IncidentStatus.ACTIVE,
-        ...resolveFilter,
-      },
-      data: {
-        status: IncidentStatus.RESOLVED,
-        resolvedAt,
-        deduplicationKey: null,
-      },
-    });
+  await transaction.incident.updateMany({
+    where: {
+      serviceId,
+      status: IncidentStatus.ACTIVE,
+      ...resolveFilter,
+    },
+    data: {
+      status: IncidentStatus.RESOLVED,
+      resolvedAt,
+      deduplicationKey: null,
+    },
+  });
 
-    if (!failure) return null;
+  if (!failure) return null;
 
-    const deduplicationKey = `${serviceId}:${failure.incidentType}`;
-    return transaction.incident.upsert({
-      where: { deduplicationKey },
-      create: {
-        serviceId,
-        incidentType: failure.incidentType,
-        severity: severityFor(failure.incidentType),
-        description: failure.description,
-        deduplicationKey,
-      },
-      update: {},
-    });
-  }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable });
+  const deduplicationKey = `${serviceId}:${failure.incidentType}`;
+  return transaction.incident.upsert({
+    where: { deduplicationKey },
+    create: {
+      serviceId,
+      incidentType: failure.incidentType,
+      severity: severityFor(failure.incidentType),
+      description: failure.description,
+      deduplicationKey,
+    },
+    update: {},
+  });
 }
 
 export async function listIncidents(input: {

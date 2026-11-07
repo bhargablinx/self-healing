@@ -39,6 +39,21 @@ enum IncidentStatus {
   RESOLVED
 }
 
+enum EvidenceType {
+  CONTAINER_STATE
+  CONTAINER_LOGS
+  EXIT_CODE
+  HEALTH_CHECK
+  RESTART_COUNT
+  CONTAINER_METADATA
+}
+
+enum EvidenceCollectionStatus {
+  COMPLETE
+  PARTIAL
+  FAILED
+}
+
 model Service {
   id            String        @id @default(cuid())
   name          String
@@ -67,8 +82,24 @@ model Incident {
   resolvedAt       DateTime?
   createdAt        DateTime         @default(now())
   service          Service          @relation(fields: [serviceId], references: [id], onDelete: Cascade)
+  evidence         IncidentEvidence[]
 
   @@index([serviceId, incidentType, status])
   @@index([status, detectedAt])
   @@map("incidents")
+}
+
+model IncidentEvidence {
+  id               String                  @id @default(cuid())
+  incidentId       String
+  evidenceType     EvidenceType
+  content          Json
+  collectedAt      DateTime                @default(now())
+  collectionStatus EvidenceCollectionStatus @default(COMPLETE)
+  collectionError  String?
+  incident         Incident                @relation(fields: [incidentId], references: [id], onDelete: Cascade)
+
+  @@unique([incidentId, evidenceType])
+  @@index([incidentId, collectedAt])
+  @@map("incident_evidence")
 }

@@ -1,10 +1,11 @@
 import type { ContainerInspectInfo } from 'dockerode';
-import { HealthStatus, IncidentType, ServiceStatus } from '../generated/prisma/client.js';
+import { HealthStatus, IncidentType, ServiceStatus, type Service } from '../generated/prisma/client.js';
 import { env } from '../config/env.js';
 import { DetectionEngine, type FailureDetection, type FailureType } from '../detection/detection-engine.js';
-import { reconcileServiceIncident } from '../incidents/incident-service.js';
+import { reconcileServiceIncident, type FailureToRecord } from '../incidents/incident-service.js';
 import { docker } from './docker-client.js';
 import { prisma } from '../lib/prisma.js';
+import { collectIncidentEvidence, type EvidenceContext } from '../diagnosis/evidence-collector.js';
 
 function dockerStatusCode(error: unknown): number | undefined {
   if (typeof error !== 'object' || error === null || !('statusCode' in error)) return undefined;
@@ -42,43 +43,85 @@ function failureFor(
   return failureType ? { serviceName, failureType, description } : null;
 }
 
+type MonitoredService = Pick<Service, 'id' | 'name' | 'isEnabled' | 'status' | 'lastCheckedAt'>;
+type ServiceObservation = {
+  status: ServiceStatus;
+  healthStatus: HealthStatus;
+  lastCheckedAt: Date;
+};
+
+interface MonitorDependencies {
+  monitoredContainers: string[];
+  inspectContainer: (containerName: string) => Promise<ContainerInspectInfo>;
+  findService: (containerName: string) => Promise<MonitoredService | null>;
+  upsertService: (containerName: string, observation: ServiceObservation) => Promise<MonitoredService>;
+  reconcileIncident: typeof reconcileServiceIncident;
+  collectEvidence: (context: EvidenceContext) => void;
+}
+
 export class ContainerMonitor {
   private readonly detections = new DetectionEngine();
   private readonly monitoringErrors = new Map<string, number>();
+  private readonly dependencies: MonitorDependencies;
+
+  constructor(dependencies: Partial<MonitorDependencies> = {}) {
+    this.dependencies = {
+      monitoredContainers: dependencies.monitoredContainers ?? env.MONITORED_CONTAINERS,
+      inspectContainer: dependencies.inspectContainer ?? ((containerName) => docker.getContainer(containerName).inspect()),
+      findService: dependencies.findService ?? ((containerName) =>
+        prisma.service.findUnique({ where: { containerId: containerName } })
+      ),
+      upsertService: dependencies.upsertService ?? ((containerName, observation) =>
+        prisma.service.upsert({
+          where: { containerId: containerName },
+          create: { name: containerName, containerId: containerName, ...observation },
+          update: observation,
+        })
+      ),
+      reconcileIncident: dependencies.reconcileIncident ?? reconcileServiceIncident,
+      collectEvidence: dependencies.collectEvidence ?? collectIncidentEvidence,
+    };
+  }
 
   async pollOnce(): Promise<void> {
-    for (const containerName of env.MONITORED_CONTAINERS) {
+    for (const containerName of this.dependencies.monitoredContainers) {
       await this.inspectConfiguredContainer(containerName);
     }
   }
 
   private async inspectConfiguredContainer(containerName: string): Promise<void> {
-    const existingService = await prisma.service.findUnique({ where: { containerId: containerName } });
+    const existingService = await this.dependencies.findService(containerName);
     if (existingService && !existingService.isEnabled) {
       return;
     }
 
     let inspection: ContainerInspectInfo;
     try {
-      inspection = await docker.getContainer(containerName).inspect();
+      inspection = await this.dependencies.inspectContainer(containerName);
     } catch (error) {
       if (dockerStatusCode(error) === 404) {
         const observation = { status: ServiceStatus.UNAVAILABLE, healthStatus: HealthStatus.UNKNOWN };
-        const service = await prisma.service.upsert({
-          where: { containerId: containerName },
-          create: { name: containerName, containerId: containerName, ...observation, lastCheckedAt: new Date() },
-          update: { ...observation, lastCheckedAt: new Date() },
+        const service = await this.dependencies.upsertService(containerName, {
+          ...observation,
+          lastCheckedAt: new Date(),
         });
         const failure: FailureDetection = {
           serviceName: service.name,
           failureType: 'CONTAINER_UNAVAILABLE',
           description: `Configured container "${containerName}" was not found by Docker.`,
         };
-        await reconcileServiceIncident(service.id, {
+        const incident = await this.dependencies.reconcileIncident(service.id, {
           incidentType: IncidentType[failure.failureType],
           description: failure.description,
         });
-        this.logDetectionEvents(this.detections.observe(service.name, failure));
+        const events = this.detections.observe(service.name, failure);
+        this.logDetectionEvents(events);
+        if (incident && events.some((event) => event.kind === 'detected')) {
+          this.dependencies.collectEvidence({
+            incidentId: incident.id, containerName, previousStatus: existingService?.status ?? ServiceStatus.UNKNOWN,
+            lastSuccessfulCheck: existingService?.lastCheckedAt ?? null, detectedAt: new Date(),
+          });
+        }
         return;
       }
 
@@ -93,22 +136,23 @@ export class ContainerMonitor {
 
     this.logRecoveredMonitoring(containerName);
     const observation = mapObservation(inspection);
-    const service = await prisma.service.upsert({
-      where: { containerId: containerName },
-      create: {
-        name: containerName,
-        containerId: containerName,
-        ...observation,
-        lastCheckedAt: new Date(),
-      },
-      update: { ...observation, lastCheckedAt: new Date() },
+    const service = await this.dependencies.upsertService(containerName, {
+      ...observation,
+      lastCheckedAt: new Date(),
     });
     const failure = failureFor(service.name, observation.status, observation.healthStatus);
-    await reconcileServiceIncident(service.id, failure ? {
+    const incident = await this.dependencies.reconcileIncident(service.id, failure ? {
       incidentType: IncidentType[failure.failureType],
       description: failure.description,
     } : null);
-    this.logDetectionEvents(this.detections.observe(service.name, failure));
+    const events = this.detections.observe(service.name, failure);
+    this.logDetectionEvents(events);
+    if (incident && events.some((event) => event.kind === 'detected')) {
+      this.dependencies.collectEvidence({
+        incidentId: incident.id, containerName, inspection, previousStatus: existingService?.status ?? ServiceStatus.UNKNOWN,
+        lastSuccessfulCheck: existingService?.lastCheckedAt ?? null, detectedAt: new Date(),
+      });
+    }
   }
 
   private logRecoveredMonitoring(containerName: string): void {

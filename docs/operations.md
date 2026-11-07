@@ -11,7 +11,7 @@ Follow the [local setup guide](configuration.md), then use:
 - Monitor logs: `docker compose logs -f backend`
 - Demo logs: `docker compose logs -f demo-app`
 
-The dashboard refreshes data every five seconds. It displays stored observations and incidents; it does not issue control actions.
+The dashboard refreshes service and incident data every five seconds and refreshes evidence/diagnosis for the selected incident. Run Diagnosis adds an investigation history entry; it does not issue container control actions.
 
 ## Demonstrate stopped-container detection
 
@@ -72,5 +72,5 @@ Commit migration files under `backend/prisma/migrations/`. Do not edit an alread
 - Service registration and enable/disable controls are not exposed. The only write endpoint triggers and records a rule-based diagnosis.
 - A missing target (Docker 404) is treated as unavailable. Other Docker inspection errors are logged and do not alter the previous observation or create an incident.
 - A running container with no Docker health check is `NOT_CONFIGURED`, not unhealthy.
-- There is no authentication, authorization, LLM analysis, automatic restart, rollback, or shell command execution. Rule-based diagnoses are persisted but not yet exposed in the API or dashboard.
+- There is no authentication, authorization, LLM analysis, automatic restart, rollback, or shell command execution. Diagnosis request deduplication is in-memory and applies within the single backend process.
 - Service status represents the latest successful observation and can be stale during monitoring errors.

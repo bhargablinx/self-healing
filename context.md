@@ -2,7 +2,7 @@
 
 > **Purpose:** This file gives developers and AI coding agents the current project goals, V1 scope, architecture, technology choices, constraints, and development direction.
 >
-> **Project status:** V1 and V2 Phase 0 stabilization are complete. V2-A Phases 1–4 (evidence collection, failure classification, rule-based diagnosis/persistence, and backend API) are implemented and verified. Dashboard integration and V2-A integration testing remain.
+> **Project status:** V1 and V2 Phase 0 stabilization are complete. V2-A Phases 1–5 (evidence collection, classification, diagnosis/persistence, API, and dashboard presentation) are implemented. The Compose frontend is healthy and serves the updated bundle; final browser-level integration acceptance remains.
 
 ---
 
@@ -607,7 +607,7 @@ Any AI coding agent contributing to this repository must:
 - Disabled-service behavior, unhealthy-container detection, and transient Docker monitoring errors were exercised against isolated temporary containers and service rows, without stopping or changing the real demo container. A disabled seeded service retained its prior `RUNNING`/`HEALTHY` observation and created no incident while the target was unhealthy. Enabling it caused the worker to record `RUNNING`/`UNHEALTHY` and create one active `CONTAINER_UNHEALTHY` incident. A separate worker using a deliberately missing Docker socket logged `ENOENT` and left the seeded service status, health, and `lastCheckedAt` unchanged without creating an incident. All temporary containers, service rows, and generated incidents were removed afterward.
 - After isolated verification cleanup, Compose database, backend, demo app, and frontend were healthy; the real demo service remained `RUNNING`/`HEALTHY`, and the active incident list was empty.
 - A Compose stop/restart demonstration created exactly one active stopped-container incident across repeated polls, returned its detail from the API, then resolved it after restart. The API reported the service as `RUNNING`/`HEALTHY` afterward.
-- The React + TypeScript + Vite dashboard is implemented in `frontend/`. It displays service summary counts, current service/container status and health, recent incidents, and a selected incident's details. It polls service and incident read endpoints every five seconds and includes loading, empty, retry, and stale-data error states. Evidence and diagnosis are available through the backend API but have not yet been added to the dashboard. Recovery remains manual.
+- The React + TypeScript + Vite dashboard is implemented in `frontend/`. It displays service summary counts, current service/container status and health, recent incidents, and selected incident details including evidence, diagnosis, and diagnosis history. Selected incident data refreshes every five seconds. A manual Run Diagnosis action reports loading/errors and refreshes the result/history. Recovery remains manual.
 - Dashboard CORS is configured in the Express app using a comma-separated origin allowlist (`CORS_ORIGINS`); Compose supplies `FRONTEND_ORIGINS`, defaulting to localhost and 127.0.0.1 on port 5173. GET, POST, and OPTIONS are allowed by this middleware.
 - A multi-stage frontend Dockerfile builds static assets and serves them with Nginx; the Compose frontend publishes port 5173 by default. The frontend has no Docker socket mount.
 - Frontend `npm run build` succeeded, backend `npm run build` succeeded, and `docker compose config --quiet` succeeded during Phase 6 implementation. The user confirmed the dashboard is working in the browser against the running Compose services. A later read-only check found the demo service `RUNNING`/`HEALTHY` and its most recent stopped-container incident `RESOLVED`; database, backend, demo app, and frontend Compose services were healthy at that check.
@@ -633,14 +633,15 @@ Any AI coding agent contributing to this repository must:
 - **V2-A Phase 2 — Failure classification:** Complete. Added a Zod-validated pure classifier for all six specified categories, with failed evidence excluded and unsupported scenarios classified as unknown. Unit tests cover explicit OOM evidence, exit code 137 ambiguity, health and startup failures, missing containers, and insufficient evidence. It is not yet wired into a diagnosis engine or API.
 - **V2-A Phase 3 — Rule-based diagnosis:** Complete and verified. Added modular deterministic rules, Zod-validated diagnosis results, and an engine that retrieves incident evidence and persists each run as a diagnosis history record. Added the `Diagnosis` model and applied its additive migration without altering existing incidents/evidence. The clean backend image and runtime are healthy; a live diagnosis for the existing stopped `demo-app-5` incident was persisted as `APPLICATION_CRASH` with `MEDIUM` confidence. The demo container was not changed.
 - **V2-A Phase 4 — Backend API:** Complete and verified. Added evidence, latest diagnosis, diagnosis trigger, and paginated/filterable diagnosis history endpoints. IDs and query parameters are validated; errors use centralized handling. Concurrent diagnosis requests for the same incident share one in-flight run within the single backend process. Live checks passed for valid reads, invalid ID (400), unknown incident (404), POST CORS preflight, and diagnosis trigger (201). Thirty-two backend tests pass. A live API-triggered diagnosis was persisted; existing demo container state remained unchanged.
-- **V2-A Phases 5–6 — Frontend and integration testing:** Not started.
+- **V2-A Phase 5 — Frontend:** Implemented. The incident detail view presents container/health/exit/restart/log evidence, unavailable collection states and timestamps, latest diagnosis details, supporting/missing evidence, confidence, method, and history. The Run Diagnosis interaction handles loading/errors and refreshes evidence/diagnosis/history. The frontend production build passed and the rebuilt Compose frontend is healthy and serves the updated bundle. Browser-level interactive acceptance is pending.
+- **V2-A Phase 6 — Integration testing:** Not complete. Requires browser-level verification of the incident detail and diagnosis flow alongside the existing end-to-end scenarios.
 - **V2-B — LLM-assisted diagnosis:** Not started; must wait until V2-A acceptance criteria are met.
 
 Do not assume any feature beyond the verified items above has been implemented.
 
 ### Immediate next steps
 
-1. Continue with V2-A Phase 5: add evidence and diagnosis to the dashboard and provide a manual Run Diagnosis interaction.
+1. Complete V2-A Phase 6: verify the dashboard interactions in a browser and run the integrated failure/diagnosis scenarios.
 2. Complete and verify all V2-A acceptance criteria before proposing V2-B LLM work.
 
 ### First end-to-end target

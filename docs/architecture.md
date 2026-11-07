@@ -4,7 +4,7 @@
 
 | Component | Location | Responsibility |
 | --- | --- | --- |
-| Dashboard | `frontend/` | React + TypeScript UI; reads service and incident data and refreshes every five seconds. |
+| Dashboard | `frontend/` | React + TypeScript UI; reads service/incident data and selected incident evidence/diagnoses, with a manual diagnosis action. |
 | REST API | `backend/src/api/` | Express endpoints for health, services, and incidents. |
 | Monitoring worker | `backend/src/monitoring/` | Uses Dockerode to inspect configured containers on a polling interval. |
 | Detection engine | `backend/src/detection/` | Emits events when a service enters or leaves a failure condition. |
@@ -22,7 +22,7 @@ Docker Engine -> monitoring worker -> detection -> incident service -> Prisma ->
 Dashboard -> Express read API -------------------------------------------------+
 ```
 
-The failure classifier and diagnosis engine are invoked separately from the monitoring cycle. Diagnoses are triggered through the incident API; the dashboard integration is the next V2-A phase.
+The failure classifier and diagnosis engine are invoked separately from the monitoring cycle. Diagnoses are triggered through the incident API; selected incident evidence and diagnosis history refresh in the dashboard every five seconds.
 
 ## Monitoring cycle
 
@@ -31,7 +31,7 @@ The failure classifier and diagnosis engine are invoked separately from the moni
 3. Docker inspection results update the service's observed state, health, and `lastCheckedAt` timestamp.
 4. A stopped, unhealthy, or confirmed missing container is reconciled into an incident. A healthy observation resolves active incidents for that service.
 5. When a failure transition is detected, the worker schedules evidence collection after incident persistence and does not wait for collection to finish.
-6. The dashboard polls the read API and displays the latest stored service and incident data. Evidence read endpoints and dashboard presentation are planned for later V2-A phases.
+6. The dashboard polls the service/incident API and, for the selected incident, reads evidence and diagnosis history every five seconds. A user can request another rule-based diagnosis from the incident details.
 
 Evidence is stored in `incident_evidence`, with one row per incident and evidence type. Diagnoses are appended to `diagnoses`, preserving each run as history. Recent stdout/stderr logs are bounded by `EVIDENCE_LOG_TAIL_LINES` and `EVIDENCE_LOG_MAX_BYTES`; collection operations use `EVIDENCE_COLLECTION_TIMEOUT_MS`. Docker environment variables are not collected. Common credential patterns are redacted from logs and Docker error/health text. Individual collection failures are stored on the evidence row and do not prevent incident creation.
 

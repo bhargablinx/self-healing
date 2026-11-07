@@ -68,7 +68,9 @@ V2-A Phase 1 adds an additive `IncidentEvidence` migration and asynchronously co
 
 V2-A Phase 2 adds the pure `classifyFailure` module in `backend/src/diagnosis/failure-classifier.ts`. It returns one of the six specified categories and an evidence-grounded explanation/indicator list. It ignores evidence marked `FAILED`, requires explicit `OOMKilled=true` for OOM classification, and returns `UNKNOWN_FAILURE` when available evidence is insufficient. Diagnosis persistence and API/UI integration belong to later phases.
 
-V2-A Phase 3 adds modular deterministic rules and `diagnoseIncident` in `backend/src/diagnosis/`. The engine loads a persisted incident and its evidence, validates the diagnosis result, then appends a record in the `diagnoses` table. The additive migration has been applied without resetting data. A live rule-based diagnosis was persisted for the existing stopped-container incident. The API and dashboard do not expose diagnoses yet.
+V2-A Phase 3 adds modular deterministic rules and `diagnoseIncident` in `backend/src/diagnosis/`. The engine loads a persisted incident and its evidence, validates the diagnosis result, then appends a record in the `diagnoses` table. The additive migration has been applied without resetting data. A live rule-based diagnosis was persisted for the existing stopped-container incident. API exposure and dashboard presentation were added in the following phases.
+
+V2-A Phase 5 extends the existing incident detail panel with evidence and diagnosis sections, collection states/timestamps, diagnosis confidence and history, and a manual Run Diagnosis action. The frontend production build passed and the Compose frontend serves the new bundle. Interactive browser verification remains part of Phase 6.
 
 ## Security boundaries
 

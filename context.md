@@ -2,7 +2,7 @@
 
 > **Purpose:** This file gives developers and AI coding agents the current project goals, V1 scope, architecture, technology choices, constraints, and development direction.
 >
-> **Project status:** Early implementation stage. Do not assume that any feature is implemented until it has been verified in the repository.
+> **Project status:** V1 and V2 Phase 0 stabilization are complete. V2-A Phase 1 evidence collection is implemented, migrated, tested, and verified in Compose. V2-A Phase 2 classification is implemented as a tested pure module. Diagnosis rules/persistence, API endpoints, and UI integration have not started.
 
 ---
 
@@ -527,7 +527,7 @@ Do not move into future AI or recovery phases until V1 is complete and tested.
 
 V1 is complete when all of the following are demonstrated:
 
-- [x] The project starts using documented Docker Compose commands. The running Compose stack is healthy, but a clean startup with a freshly built backend image is unverified because standard backend dependency installation stalled in this environment; the current backend was assembled from cached local dependencies. See the build troubleshooting note in `docs/configuration.md`.
+- [x] The project starts using documented Docker Compose commands. A no-cache backend image build and the full `docker compose up --build -d` command both succeeded on 2026-11-07. One earlier no-cache build attempt returned npm `ECONNRESET`; retry succeeded without Dockerfile changes.
 - [x] PostgreSQL data persists in the named Compose volume across container recreation.
 - [x] The backend connects to PostgreSQL through Prisma.
 - [x] The demo application appears in the dashboard as healthy/running.
@@ -588,7 +588,7 @@ Any AI coding agent contributing to this repository must:
 - `dockerode` for Docker monitoring
 - Zod for validation where appropriate
 
-### Verified implementation status (updated 2026-11-06)
+### Verified implementation status (updated 2026-11-08)
 
 - Repository inspection is complete. The project-specific README and this context file are present.
 - Backend foundation is implemented in `backend/` using Express 5, TypeScript, Zod, and Prisma 7 with the PostgreSQL driver adapter.
@@ -611,9 +611,11 @@ Any AI coding agent contributing to this repository must:
 - Dashboard CORS is configured in the Express app using a comma-separated origin allowlist (`CORS_ORIGINS`); Compose supplies `FRONTEND_ORIGINS`, defaulting to localhost and 127.0.0.1 on port 5173. Only GET and OPTIONS are allowed by this middleware.
 - A multi-stage frontend Dockerfile builds static assets and serves them with Nginx; the Compose frontend publishes port 5173 by default. The frontend has no Docker socket mount.
 - Frontend `npm run build` succeeded, backend `npm run build` succeeded, and `docker compose config --quiet` succeeded during Phase 6 implementation. The user confirmed the dashboard is working in the browser against the running Compose services. A later read-only check found the demo service `RUNNING`/`HEALTHY` and its most recent stopped-container incident `RESOLVED`; database, backend, demo app, and frontend Compose services were healthy at that check.
-- The regular Dockerfile image build uses `npm ci`; repeated attempts in this environment stalled during dependency installation. To get the updated worker running in Compose without changing the repository's reproducible build path, a local image was assembled from the existing host-installed dependencies and compiled output. That image is currently running and has been exercised against Compose PostgreSQL and Docker.
+- The backend Dockerfile uses `npm ci`. A clean no-cache backend image build succeeded on retry after one `ECONNRESET`; clean `npm ci` also succeeded on the host and in a fresh Node 22 container. The documented full Compose startup then succeeded, generated Prisma Client, reported no pending migrations, and left the existing PostgreSQL data intact.
 - Project documentation is organized under `docs/` for architecture, configuration/local setup, API, operations/data model, and development/verification/security. The root README contains a short Compose quick start and links to those guides.
-- Multi-container monitoring is now configured in the root `.env` for five names (`self-healing-demo-app` through `self-healing-demo-app-5`). The running backend reports `Monitoring 5 configured container(s)`, and `GET /api/services` returns all five service records. At the latest check, apps 1–4 were healthy and app 5 was exited; its stopped/unhealthy state was visible through the API. The frontend polls the API every five seconds and does not need to be restarted for backend service-list changes.
+- Multi-container monitoring is configured in the root `.env` for five names (`self-healing-demo-app` through `self-healing-demo-app-5`). The running backend reports `Monitoring 5 configured container(s)`, and `GET /api/services` returns all five service records. At the latest check, apps 1–4 were healthy and app 5 was stopped with one active stopped-container incident; the frontend polls the API every five seconds.
+- During Phase 0, the documented `docker compose up --build -d` startup briefly started the previously stopped `demo-app-5`. It was stopped again to restore its prior container state. The monitor resolved the prior active incident during the brief recovery and created a new active incident after the container was stopped again. No incident or service rows were deleted or manually rewritten.
+- Eighteen automated backend regression tests now run with Node's built-in test runner and the existing `tsx` dependency. They cover detection transitions, incident lifecycle, monitoring boundaries, evidence sanitization/scheduling, and deterministic failure classification. Tests use injected fake dependencies and do not connect to PostgreSQL or inspect Docker containers.
 - The host Docker socket has group ID 129 on the development machine. Compose adds this group to the non-root backend container via `DOCKER_GID`; hosts with a different socket group must update that value in `.env`.
 - Host PostgreSQL on port 5432 and Compose PostgreSQL on loopback port 5433 are separate databases. The Compose backend uses the Compose database. A stale `self-healing-demo` row exists in host PostgreSQL from local-worker verification; Prisma Studio started with the default `backend/.env` reads that host database unless `DATABASE_URL` is overridden to port 5433.
 
@@ -622,18 +624,22 @@ Any AI coding agent contributing to this repository must:
 - **Phase 1 — Repository inspection and planning:** Complete.
 - **Phase 2 — Backend and database foundation:** Complete and verified against PostgreSQL.
 - **Phase 3 — Demo application and Compose:** Complete. Backend, database, demo app, and frontend services are defined in Compose; demo stop/start is used for controlled incident demonstration.
-- **Phase 4 — Monitoring and detection:** Implemented and exercised inside the running Compose backend. The regular Dockerfile rebuild still depends on successful npm registry downloads in the build environment.
+- **Phase 4 — Monitoring and detection:** Implemented and exercised inside the running Compose backend. The no-cache Dockerfile build succeeded on retry after one transient npm registry `ECONNRESET`.
 - **Phase 5 — Incident persistence and API:** Complete and verified with a Compose stop/restart demonstration and database-backed API reads.
 - **Phase 6 — Frontend dashboard:** Complete. Frontend and backend builds and Compose configuration were verified, and the user confirmed the dashboard works in the browser.
-- **Phase 7 — End-to-end testing and documentation:** Manual V1 runtime verification and user documentation are complete: backend monitoring, incident creation/deduplication/resolution, API reads and validation, health endpoints, the user-confirmed dashboard stop/restart flow, disabled-service behavior, unhealthy-container detection, and transient Docker monitoring errors were exercised. A clean Compose startup using a freshly built backend image remains unverified because backend dependency installation stalled in this environment. Automated regression tests have not been added or run.
+- **Phase 7 — End-to-end testing and documentation:** Manual V1 runtime verification and user documentation are complete. The documented clean Compose startup was verified on 2026-11-07 after a transient npm `ECONNRESET` on the first build attempt. Eight automated V1 regression tests pass. The passing tests and manual scenarios are described above.
+- **V2 Phase 0 — V1 stabilization:** Complete. Clean backend build verified, regression suite added and passing, and existing Compose/PostgreSQL data preserved.
+- **V2-A Phase 1 — Evidence collection:** Complete and verified. Added bounded, sanitized Docker evidence collection, per-evidence failure recording, a Prisma evidence model and additive migration, and nonblocking monitor integration. The migration was applied to the Compose database without resetting existing data. Eleven backend tests pass. The clean backend image build and Compose health check passed; all six evidence types were confirmed persisted for the existing stopped `demo-app-5` incident. No demo container state was changed during verification.
+- **V2-A Phase 2 — Failure classification:** Complete. Added a Zod-validated pure classifier for all six specified categories, with failed evidence excluded and unsupported scenarios classified as unknown. Unit tests cover explicit OOM evidence, exit code 137 ambiguity, health and startup failures, missing containers, and insufficient evidence. It is not yet wired into a diagnosis engine or API.
+- **V2-A Phases 3–6 — Rule-based diagnosis, API, UI, and integration:** Not started.
+- **V2-B — LLM-assisted diagnosis:** Not started; must wait until V2-A acceptance criteria are met.
 
 Do not assume any feature beyond the verified items above has been implemented.
 
 ### Immediate next steps
 
-1. Resolve or reproducibly document the backend image build issue, then verify the documented Compose startup from a clean build.
-2. Add automated regression tests for detection transitions, incident deduplication/lifecycle, and monitoring error handling.
-3. Update this status block as additional verification is completed.
+1. Continue with V2-A Phase 3: deterministic diagnosis rules and diagnosis persistence, then add the API and dashboard phases.
+2. Complete and verify all V2-A acceptance criteria before proposing V2-B LLM work.
 
 ### First end-to-end target
 

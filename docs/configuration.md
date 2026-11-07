@@ -41,7 +41,12 @@ Values are read from the root `.env` and interpolated by `docker-compose.yml`.
 | `DEMO_APP_PORT` | `4000` | Host port mapped to the demo app. |
 | `MONITORED_CONTAINERS` | `self-healing-demo-app` | Comma-separated Docker container names to inspect. |
 | `MONITOR_INTERVAL_MS` | `5000` | Poll interval in milliseconds; minimum 1000. |
+| `EVIDENCE_LOG_TAIL_LINES` | `100` | Maximum recent Docker log lines collected for a new incident (1–1000). |
+| `EVIDENCE_LOG_MAX_BYTES` | `65536` | Maximum stored log bytes per incident (1024–1000000). |
+| `EVIDENCE_COLLECTION_TIMEOUT_MS` | `5000` | Overall Docker evidence collection timeout (500–30000 ms). |
 | `DOCKER_GID` | `129` | Supplemental group ID for Docker socket access inside the backend container. |
+
+Incident evidence is collected asynchronously after a newly detected failure has been persisted. Collection errors are stored with the affected evidence item. Log content is bounded and common credential patterns are redacted. Container environment variables are not collected.
 
 When changing `BACKEND_PORT`, rebuild the frontend image so Vite embeds the matching API URL:
 
@@ -90,4 +95,4 @@ Compose uses the root `.env` values when it creates a new database volume. If a 
 
 ### Docker image dependency installation stalls
 
-The backend Dockerfile installs dependencies using `npm ci`. If image build output stalls during this step, inspect with `docker compose build --progress=plain backend`, check npm registry/network access, and retry. Do not assume an old locally tagged backend image contains current source changes; verify the image build and container logs after rebuilding.
+The backend Dockerfile installs dependencies using `npm ci`. In this environment, one no-cache build attempt returned npm `ECONNRESET` during a registry read; a no-cache retry then completed dependency installation, Prisma generation, and compilation successfully. Clean installs also succeeded on the host and in a fresh Node 22 container, so the cause of the first reset was not established. If it recurs, inspect with `docker compose --progress plain build --no-cache backend`, check npm registry/network access, and retry. Do not assume an old locally tagged backend image contains current source changes; verify the image build and container logs after rebuilding.

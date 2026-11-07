@@ -62,7 +62,11 @@ The documented project state has been manually exercised for:
 - An unhealthy container creating a `CONTAINER_UNHEALTHY` incident.
 - A transient Docker socket error preserving the previous service state and creating no incident.
 
-The unhealthy and monitoring-error checks used isolated temporary containers and rows; those resources were cleaned up. Automated regression tests have not been added or run.
+The unhealthy and monitoring-error checks used isolated temporary containers and rows; those resources were cleaned up. Eighteen automated backend regression tests are in `backend/tests/`, using Node's built-in test runner and the existing `tsx` dependency. Run them with `cd backend && npm test`. They cover failure transitions, incident reconciliation behavior, disabled services, transient Docker errors, confirmed missing containers, evidence scheduling/sanitization, and deterministic failure classification. The tests use injected fakes and do not require a database or Docker daemon.
+
+V2-A Phase 1 adds an additive `IncidentEvidence` migration and asynchronously collects bounded container state, exit/OOM information, health-check details, restart count, metadata, and recent stdout/stderr logs. Evidence is uniquely upserted per incident and evidence type. The Compose database migration has been applied without resetting existing data. The clean backend image and runtime were verified, including successful persistence of all six evidence types for the existing stopped-container incident.
+
+V2-A Phase 2 adds the pure `classifyFailure` module in `backend/src/diagnosis/failure-classifier.ts`. It returns one of the six specified categories and an evidence-grounded explanation/indicator list. It ignores evidence marked `FAILED`, requires explicit `OOMKilled=true` for OOM classification, and returns `UNKNOWN_FAILURE` when available evidence is insufficient. Diagnosis persistence and API/UI integration belong to later phases.
 
 ## Security boundaries
 

@@ -11,7 +11,7 @@
 | Incident service | `backend/src/incidents/` | Persists, deduplicates, and resolves incidents using Prisma. |
 | Evidence collector | `backend/src/diagnosis/evidence-collector.ts` | Asynchronously stores bounded, sanitized Docker state, health, metadata, and logs for newly detected incidents. |
 | Failure classifier | `backend/src/diagnosis/failure-classifier.ts` | Pure, deterministic mapping from incident evidence to a supported failure category, used by the diagnosis rules. |
-| Diagnosis engine | `backend/src/diagnosis/diagnosis-engine.ts` and `diagnosis-rules.ts` | Evaluates evidence against deterministic rules and appends a diagnosis history record. It is not exposed through an API yet. |
+| Diagnosis engine | `backend/src/diagnosis/diagnosis-engine.ts` and `diagnosis-rules.ts` | Evaluates evidence against deterministic rules and appends a diagnosis history record. |
 | Database | PostgreSQL | Stores service observations, incident history, evidence, and diagnosis history. |
 | Demo app | `demo-app/` | Small HTTP service with `/` and `/health` routes. |
 
@@ -22,7 +22,7 @@ Docker Engine -> monitoring worker -> detection -> incident service -> Prisma ->
 Dashboard -> Express read API -------------------------------------------------+
 ```
 
-The failure classifier and diagnosis engine are invoked separately from the monitoring cycle. A diagnosis is currently created by calling the engine from backend code; the planned incident diagnosis endpoint is part of the next V2-A phase.
+The failure classifier and diagnosis engine are invoked separately from the monitoring cycle. Diagnoses are triggered through the incident API; the dashboard integration is the next V2-A phase.
 
 ## Monitoring cycle
 

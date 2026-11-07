@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
+import type { Diagnosis } from '../src/generated/prisma/client.js';
 import { IncidentNotFoundError, diagnoseIncident, type DiagnosisRepository } from '../src/diagnosis/diagnosis-engine.js';
 
 const incident = {
@@ -18,7 +19,7 @@ test('loads incident evidence and appends a persisted diagnosis history record',
     findIncidentById: async (id) => id === incident.id ? incident : null,
     createDiagnosis: async (data) => {
       saved = data;
-      return { id: 'diagnosis-1', ...data };
+      return { id: 'diagnosis-1', ...data } as Diagnosis;
     },
   };
 
@@ -34,7 +35,7 @@ test('reports an unknown incident without attempting persistence', async () => {
   let persisted = false;
   const repository: DiagnosisRepository = {
     findIncidentById: async () => null,
-    createDiagnosis: async () => { persisted = true; return {}; },
+    createDiagnosis: async () => { persisted = true; return {} as Diagnosis; },
   };
 
   await assert.rejects(() => diagnoseIncident('missing', repository), IncidentNotFoundError);

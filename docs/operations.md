@@ -51,7 +51,7 @@ Evidence is stored in `incident_evidence`, one row per incident and evidence typ
 
 ### Diagnosis
 
-Each rule-based diagnosis run appends a row to `diagnoses`. Records include the category, probable cause, explanation, confidence, evidence supporting the result, missing evidence, method, and creation time. Multiple runs per incident are retained as history. The diagnosis engine currently has no HTTP endpoint or dashboard action; those are planned next.
+Each rule-based diagnosis run appends a row to `diagnoses`. Records include the category, probable cause, explanation, confidence, evidence supporting the result, missing evidence, method, and creation time. Multiple runs per incident are retained as history. The API can retrieve evidence, the latest diagnosis, and diagnosis history, and can trigger a new diagnosis. The dashboard does not display them yet.
 
 ## Persistence and migrations
 
@@ -69,7 +69,7 @@ Commit migration files under `backend/prisma/migrations/`. Do not edit an alread
 ## Current limitations
 
 - The worker only inspects explicitly configured Docker container names.
-- The API and dashboard are read-only; service registration and enable/disable controls are not exposed.
+- Service registration and enable/disable controls are not exposed. The only write endpoint triggers and records a rule-based diagnosis.
 - A missing target (Docker 404) is treated as unavailable. Other Docker inspection errors are logged and do not alter the previous observation or create an incident.
 - A running container with no Docker health check is `NOT_CONFIGURED`, not unhealthy.
 - There is no authentication, authorization, LLM analysis, automatic restart, rollback, or shell command execution. Rule-based diagnoses are persisted but not yet exposed in the API or dashboard.

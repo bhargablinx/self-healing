@@ -78,6 +78,33 @@ The related `service` object contains its service fields; it is shortened above 
 
 Returns one incident including its service. Malformed IDs return HTTP 400; a valid but unknown ID returns HTTP 404.
 
+### `GET /api/incidents/:id/evidence`
+
+Returns the incident's collected evidence ordered by collection time. Each item includes its type, JSON content, collection timestamp, collection status, and any collection error. A known incident with no evidence returns `{"data":[]}`. An unknown incident returns HTTP 404.
+
+### `GET /api/incidents/:id/diagnosis`
+
+Returns the latest diagnosis record, or `{"data":null}` if the incident has no diagnosis yet. An unknown incident returns HTTP 404.
+
+### `POST /api/incidents/:id/diagnose`
+
+Runs the deterministic diagnosis engine and persists a new diagnosis history record. The request has no body. A new diagnosis returns HTTP 201 with the record in `data` and `meta.reusedInFlight=false`. A concurrent request for the same incident shares the in-flight result and returns HTTP 200 with `meta.reusedInFlight=true`. Deduplication is held in the current backend process; the Compose deployment runs one backend instance. An unknown incident returns HTTP 404.
+
+### `GET /api/diagnoses`
+
+Returns paginated diagnosis history, newest first. Query parameters:
+
+| Parameter | Default | Constraints |
+| --- | --- | --- |
+| `page` | `1` | Integer, at least 1. |
+| `limit` | `20` | Integer, 1–100. |
+| `incidentId` | none | Generated CUID format. |
+| `diagnosisType` | none | `APPLICATION_CRASH`, `OUT_OF_MEMORY`, `HEALTH_CHECK_FAILURE`, `STARTUP_FAILURE`, `CONTAINER_UNAVAILABLE`, or `UNKNOWN_FAILURE`. |
+| `diagnosisMethod` | none | `RULE_BASED` or `LLM`. |
+| `confidence` | none | `LOW`, `MEDIUM`, `HIGH`, or `INCONCLUSIVE`. |
+
+Example: `GET /api/diagnoses?page=1&limit=20&diagnosisMethod=RULE_BASED&confidence=MEDIUM`
+
 ## Errors
 
 | HTTP status | Error code | Meaning |
@@ -90,4 +117,4 @@ Validation errors have the shape `{"error":{"code":"VALIDATION_ERROR","message":
 
 ## CORS
 
-The backend allows origins listed in `FRONTEND_ORIGINS` in the root `.env` (default: localhost and 127.0.0.1 on port 5173). The middleware permits GET and OPTIONS and does not enable credentials. The API is read-only; it has no endpoint to create incidents or change service enablement.
+The backend allows origins listed in `FRONTEND_ORIGINS` in the root `.env` (default: localhost and 127.0.0.1 on port 5173). The middleware permits GET, POST, and OPTIONS and does not enable credentials. The API cannot create incidents or change service enablement; the diagnosis POST only evaluates and stores a diagnosis.

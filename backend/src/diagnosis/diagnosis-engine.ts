@@ -1,4 +1,4 @@
-import { DiagnosisMethod, Prisma } from '../generated/prisma/client.js';
+import { DiagnosisMethod, Prisma, type Diagnosis } from '../generated/prisma/client.js';
 import { prisma } from '../lib/prisma.js';
 import { evaluateDiagnosis, type DiagnosisInput, type DiagnosisResult } from './diagnosis-rules.js';
 
@@ -13,7 +13,7 @@ type DiagnosisCreateData = DiagnosisResult & { incidentId: string };
 
 export interface DiagnosisRepository {
   findIncidentById(incidentId: string): Promise<DiagnosisIncident | null>;
-  createDiagnosis(data: DiagnosisCreateData): Promise<unknown>;
+  createDiagnosis(data: DiagnosisCreateData): Promise<Diagnosis>;
 }
 
 const prismaRepository: DiagnosisRepository = {

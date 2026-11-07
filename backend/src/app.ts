@@ -3,7 +3,9 @@ import { Prisma } from './generated/prisma/client.js';
 import { ZodError } from 'zod';
 import { servicesRouter } from './api/routes/services.js';
 import { incidentsRouter } from './api/routes/incidents.js';
+import { diagnosesRouter } from './api/routes/diagnoses.js';
 import { env } from './config/env.js';
+import { IncidentNotFoundError } from './diagnosis/diagnosis-engine.js';
 
 export const app = express();
 app.disable('x-powered-by');
@@ -12,7 +14,7 @@ app.use((req, res, next) => {
   if (origin && env.CORS_ORIGINS.includes(origin)) {
     res.setHeader('Access-Control-Allow-Origin', origin);
     res.setHeader('Vary', 'Origin');
-    res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
+    res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
     res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
   }
   if (req.method === 'OPTIONS') {
@@ -27,12 +29,17 @@ app.get('/api/health', (_req, res) => {
 });
 app.use('/api/services', servicesRouter);
 app.use('/api/incidents', incidentsRouter);
+app.use('/api/diagnoses', diagnosesRouter);
 app.use((_req, res) => {
   res.status(404).json({ error: { code: 'NOT_FOUND', message: 'Route not found' } });
 });
 const errorHandler: ErrorRequestHandler = (error: unknown, _req, res, _next) => {
   if (error instanceof ZodError) {
     res.status(400).json({ error: { code: 'VALIDATION_ERROR', message: 'Request validation failed', details: error.issues } });
+    return;
+  }
+  if (error instanceof IncidentNotFoundError) {
+    res.status(404).json({ error: { code: 'NOT_FOUND', message: 'Incident not found' } });
     return;
   }
   if (error instanceof Prisma.PrismaClientKnownRequestError) console.error('Database request failed:', error.code);

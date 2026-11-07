@@ -54,6 +54,27 @@ enum EvidenceCollectionStatus {
   FAILED
 }
 
+enum DiagnosisType {
+  APPLICATION_CRASH
+  OUT_OF_MEMORY
+  HEALTH_CHECK_FAILURE
+  STARTUP_FAILURE
+  CONTAINER_UNAVAILABLE
+  UNKNOWN_FAILURE
+}
+
+enum DiagnosisConfidence {
+  LOW
+  MEDIUM
+  HIGH
+  INCONCLUSIVE
+}
+
+enum DiagnosisMethod {
+  RULE_BASED
+  LLM
+}
+
 model Service {
   id            String        @id @default(cuid())
   name          String
@@ -71,18 +92,19 @@ model Service {
 }
 
 model Incident {
-  id               String           @id @default(cuid())
+  id               String             @id @default(cuid())
   serviceId        String
   incidentType     IncidentType
-  severity         IncidentSeverity @default(MEDIUM)
+  severity         IncidentSeverity   @default(MEDIUM)
   description      String
-  status           IncidentStatus   @default(ACTIVE)
-  deduplicationKey String?          @unique
-  detectedAt       DateTime         @default(now())
+  status           IncidentStatus     @default(ACTIVE)
+  deduplicationKey String?            @unique
+  detectedAt       DateTime           @default(now())
   resolvedAt       DateTime?
-  createdAt        DateTime         @default(now())
-  service          Service          @relation(fields: [serviceId], references: [id], onDelete: Cascade)
+  createdAt        DateTime           @default(now())
+  service          Service            @relation(fields: [serviceId], references: [id], onDelete: Cascade)
   evidence         IncidentEvidence[]
+  diagnoses        Diagnosis[]
 
   @@index([serviceId, incidentType, status])
   @@index([status, detectedAt])
@@ -90,16 +112,34 @@ model Incident {
 }
 
 model IncidentEvidence {
-  id               String                  @id @default(cuid())
+  id               String                   @id @default(cuid())
   incidentId       String
   evidenceType     EvidenceType
   content          Json
-  collectedAt      DateTime                @default(now())
+  collectedAt      DateTime                 @default(now())
   collectionStatus EvidenceCollectionStatus @default(COMPLETE)
   collectionError  String?
-  incident         Incident                @relation(fields: [incidentId], references: [id], onDelete: Cascade)
+  incident         Incident                 @relation(fields: [incidentId], references: [id], onDelete: Cascade)
 
   @@unique([incidentId, evidenceType])
   @@index([incidentId, collectedAt])
   @@map("incident_evidence")
+}
+
+model Diagnosis {
+  id                 String              @id @default(cuid())
+  incidentId         String
+  diagnosisType      DiagnosisType
+  probableCause      String
+  explanation        String
+  confidence         DiagnosisConfidence
+  supportingEvidence Json
+  missingEvidence    Json
+  diagnosisMethod    DiagnosisMethod     @default(RULE_BASED)
+  createdAt          DateTime            @default(now())
+  incident           Incident            @relation(fields: [incidentId], references: [id], onDelete: Cascade)
+
+  @@index([incidentId, createdAt])
+  @@index([incidentId, diagnosisMethod, createdAt])
+  @@map("diagnoses")
 }

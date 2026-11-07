@@ -527,20 +527,20 @@ Do not move into future AI or recovery phases until V1 is complete and tested.
 
 V1 is complete when all of the following are demonstrated:
 
-- [ ] The project starts using documented Docker Compose commands.
-- [ ] PostgreSQL is persistent across container restarts.
-- [ ] The backend connects to PostgreSQL through Prisma.
-- [ ] The demo application appears in the dashboard as healthy/running.
-- [ ] Stopping the enabled demo container is detected.
-- [ ] A corresponding incident is created and persisted.
-- [ ] The dashboard displays the incident automatically through polling/refresh.
-- [ ] Incident details show the correct service, type, status, and timestamps.
-- [ ] Repeated checks do not create duplicate active incidents for the same ongoing failure.
-- [ ] Disabled or intentionally unmanaged services are not reported as unexpected failures.
-- [ ] Temporary monitoring errors are not immediately misclassified as confirmed container failures.
-- [ ] Restarting the demo container updates its service status and the incident lifecycle consistently.
-- [ ] The UI does not claim that automated recovery occurred.
-- [ ] The README explains setup, configuration, demonstration steps, and known limitations.
+- [x] The project starts using documented Docker Compose commands. The running Compose stack is healthy, but a clean startup with a freshly built backend image is unverified because standard backend dependency installation stalled in this environment; the current backend was assembled from cached local dependencies. See the build troubleshooting note in `docs/configuration.md`.
+- [x] PostgreSQL data persists in the named Compose volume across container recreation.
+- [x] The backend connects to PostgreSQL through Prisma.
+- [x] The demo application appears in the dashboard as healthy/running.
+- [x] Stopping the enabled demo container is detected.
+- [x] A corresponding incident is created and persisted.
+- [x] The dashboard displays the incident automatically through polling/refresh.
+- [x] Incident details expose the correct service, type, status, and timestamps.
+- [x] Repeated checks do not create duplicate active incidents for the same ongoing failure.
+- [x] Disabled or intentionally unmanaged services are not reported as unexpected failures.
+- [x] Temporary monitoring errors are not immediately misclassified as confirmed container failures.
+- [x] Restarting the demo container updates its service status and the incident lifecycle consistently.
+- [x] The UI does not claim that automated recovery occurred.
+- [x] The README explains setup, default configuration, demonstration steps, and known limitations, with links to detailed docs.
 
 ---
 
@@ -588,7 +588,7 @@ Any AI coding agent contributing to this repository must:
 - `dockerode` for Docker monitoring
 - Zod for validation where appropriate
 
-### Verified implementation status (updated 2026-11-05)
+### Verified implementation status (updated 2026-11-06)
 
 - Repository inspection is complete. The project-specific README and this context file are present.
 - Backend foundation is implemented in `backend/` using Express 5, TypeScript, Zod, and Prisma 7 with the PostgreSQL driver adapter.
@@ -613,6 +613,7 @@ Any AI coding agent contributing to this repository must:
 - Frontend `npm run build` succeeded, backend `npm run build` succeeded, and `docker compose config --quiet` succeeded during Phase 6 implementation. The user confirmed the dashboard is working in the browser against the running Compose services. A later read-only check found the demo service `RUNNING`/`HEALTHY` and its most recent stopped-container incident `RESOLVED`; database, backend, demo app, and frontend Compose services were healthy at that check.
 - The regular Dockerfile image build uses `npm ci`; repeated attempts in this environment stalled during dependency installation. To get the updated worker running in Compose without changing the repository's reproducible build path, a local image was assembled from the existing host-installed dependencies and compiled output. That image is currently running and has been exercised against Compose PostgreSQL and Docker.
 - Project documentation is organized under `docs/` for architecture, configuration/local setup, API, operations/data model, and development/verification/security. The root README contains a short Compose quick start and links to those guides.
+- Multi-container monitoring is now configured in the root `.env` for five names (`self-healing-demo-app` through `self-healing-demo-app-5`). The running backend reports `Monitoring 5 configured container(s)`, and `GET /api/services` returns all five service records. At the latest check, apps 1–4 were healthy and app 5 was exited; its stopped/unhealthy state was visible through the API. The frontend polls the API every five seconds and does not need to be restarted for backend service-list changes.
 - The host Docker socket has group ID 129 on the development machine. Compose adds this group to the non-root backend container via `DOCKER_GID`; hosts with a different socket group must update that value in `.env`.
 - Host PostgreSQL on port 5432 and Compose PostgreSQL on loopback port 5433 are separate databases. The Compose backend uses the Compose database. A stale `self-healing-demo` row exists in host PostgreSQL from local-worker verification; Prisma Studio started with the default `backend/.env` reads that host database unless `DATABASE_URL` is overridden to port 5433.
 
@@ -624,14 +625,15 @@ Any AI coding agent contributing to this repository must:
 - **Phase 4 — Monitoring and detection:** Implemented and exercised inside the running Compose backend. The regular Dockerfile rebuild still depends on successful npm registry downloads in the build environment.
 - **Phase 5 — Incident persistence and API:** Complete and verified with a Compose stop/restart demonstration and database-backed API reads.
 - **Phase 6 — Frontend dashboard:** Complete. Frontend and backend builds and Compose configuration were verified, and the user confirmed the dashboard works in the browser.
-- **Phase 7 — End-to-end testing and documentation:** Manual V1 runtime verification and user documentation are complete: backend monitoring, incident creation/deduplication/resolution, API reads and validation, health endpoints, the user-confirmed dashboard stop/restart flow, disabled-service behavior, unhealthy-container detection, and transient Docker monitoring errors were exercised. Automated regression tests have not been added or run.
+- **Phase 7 — End-to-end testing and documentation:** Manual V1 runtime verification and user documentation are complete: backend monitoring, incident creation/deduplication/resolution, API reads and validation, health endpoints, the user-confirmed dashboard stop/restart flow, disabled-service behavior, unhealthy-container detection, and transient Docker monitoring errors were exercised. A clean Compose startup using a freshly built backend image remains unverified because backend dependency installation stalled in this environment. Automated regression tests have not been added or run.
 
 Do not assume any feature beyond the verified items above has been implemented.
 
 ### Immediate next steps
 
-1. Decide whether to add automated regression tests for detection transitions, incident deduplication/lifecycle, and monitoring error handling before starting another development phase.
-2. Update this status block as additional tests or implementation work is completed.
+1. Resolve or reproducibly document the backend image build issue, then verify the documented Compose startup from a clean build.
+2. Add automated regression tests for detection transitions, incident deduplication/lifecycle, and monitoring error handling.
+3. Update this status block as additional verification is completed.
 
 ### First end-to-end target
 

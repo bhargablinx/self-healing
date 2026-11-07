@@ -19,6 +19,8 @@ Open the dashboard at <http://localhost:5173>. The API health endpoint is <http:
 
 To see an incident appear, run `docker compose stop demo-app` and wait about 5–10 seconds. Restore the demo with `docker compose start demo-app`; the incident should resolve after the monitor sees it healthy again.
 
+By default, only `self-healing-demo-app` is monitored. Set `MONITORED_CONTAINERS` in `.env` to a comma-separated list to monitor more containers, then recreate the backend. Recovery is manual; the system records and displays failures but does not restart containers. See [configuration](docs/configuration.md) for environment settings and [operations](docs/operations.md) for known behavior and limits.
+
 Stop the services with `docker compose down`. Data stays in the `postgres_data` volume. `docker compose down -v` also deletes the database.
 
 ## Documentation
